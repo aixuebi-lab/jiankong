@@ -1,1 +1,1 @@
-worker: python jiangkong.py
+web: python jiankong.py
