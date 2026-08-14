@@ -88,8 +88,8 @@ while True:
 
         # 获取 H 代币的 Transfer 事件
         events = h_token_contract.events.Transfer.get_logs(
-            fromBlock=from_block,
-            toBlock=to_block
+            from_Block=from_block,
+            to_Block=to_block
         )
 
         for event in events:
