@@ -8,18 +8,57 @@ os.system("pip install web3 requests -q")
 
 # ====== 配置区（改成你自己的） ======
 WALLET_ADDRESS = "0xCca208372204416762dABE99Eb0138b5cdfF868D"
-BSC_RPC = "https://bsc-mainnet.nodereal.io/v1/d3cf00af6c9e434ca5f81d36ff42c810"
+
+# 币安官方公共节点列表（支持故障转移）
+BSC_RPC_LIST = [
+    "https://bsc-dataseed.binance.org/",
+    "https://bsc-dataseed1.binance.org/",
+    "https://bsc-dataseed2.binance.org/",
+    "https://bsc-dataseed3.binance.org/",
+    "https://bsc-dataseed4.binance.org/"
+]
+
 DINGTALK_WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=383e7ddda0409845a782ae795c789f27533fca26221f300d28a47dd83f720a75"
-CHECK_INTERVAL = 30
+CHECK_INTERVAL = 10  # 检查间隔（秒）
 
 # H 代币合约地址
 H_TOKEN_ADDRESS = "0x44f161ae29361e332dea039dfa2f404e0bc5b5cc"
 # ===================================
 
-w3 = Web3(Web3.HTTPProvider(BSC_RPC))
-if not w3.is_connected():
-    print("RPC连接失败")
+# 初始化 Web3 连接（带故障转移）
+w3 = None
+current_rpc_index = 0
+
+for i, rpc in enumerate(BSC_RPC_LIST):
+    try:
+        test_w3 = Web3(Web3.HTTPProvider(rpc))
+        if test_w3.is_connected():
+            w3 = test_w3
+            current_rpc_index = i
+            print(f"✅ 成功连接到 RPC: {rpc}")
+            break
+    except:
+        continue
+
+if w3 is None:
+    print("❌ 所有 RPC 节点连接失败，请检查网络")
     exit()
+
+def switch_rpc():
+    """切换到下一个可用的 RPC 节点"""
+    global w3, current_rpc_index
+    for i in range(len(BSC_RPC_LIST)):
+        idx = (current_rpc_index + 1 + i) % len(BSC_RPC_LIST)
+        try:
+            test_w3 = Web3(Web3.HTTPProvider(BSC_RPC_LIST[idx]))
+            if test_w3.is_connected():
+                w3 = test_w3
+                current_rpc_index = idx
+                print(f"🔄 已切换到 RPC: {BSC_RPC_LIST[idx]}")
+                return True
+        except:
+            continue
+    return False
 
 WALLET_ADDRESS = Web3.to_checksum_address(WALLET_ADDRESS)
 H_TOKEN_ADDRESS = Web3.to_checksum_address(H_TOKEN_ADDRESS)
@@ -120,5 +159,20 @@ while True:
         time.sleep(CHECK_INTERVAL)
 
     except Exception as e:
-        print(f"错误: {e}")
-        time.sleep(CHECK_INTERVAL)
+        print(f"⚠️ 错误: {e}")
+        
+        # 尝试切换 RPC 节点
+        if "connection" in str(e).lower() or "timeout" in str(e).lower():
+            print("🔄 尝试切换 RPC 节点...")
+            if switch_rpc():
+                # 更新合约实例
+                h_token_contract = w3.eth.contract(address=H_TOKEN_ADDRESS, abi=H_TOKEN_ABI)
+                try:
+                    H_DECIMALS = h_token_contract.functions.decimals().call()
+                except:
+                    H_DECIMALS = 18
+                print("✅ RPC 切换成功，继续监控")
+            else:
+                print("❌ 所有 RPC 节点均不可用，等待重试...")
+        
+        time.sleep(CHECK_INTERVAL * 2)  # 出错后等待更长时间
