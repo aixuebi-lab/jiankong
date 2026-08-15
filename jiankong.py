@@ -21,7 +21,7 @@ BSC_RPC_LIST = [
 ]
 
 DINGTALK_WEBHOOK = "https://oapi.dingtalk.com/robot/send?access_token=383e7ddda0409845a782ae795c789f27533fca26221f300d28a47dd83f720a75"
-CHECK_INTERVAL = 15  # 改为15秒避免限流
+CHECK_INTERVAL = 30  # 检查间隔30秒
 
 H_TOKEN_ADDRESS = "0x44f161ae29361e332dea039dfa2f404e0bc5b5cc"
 # ===================================
